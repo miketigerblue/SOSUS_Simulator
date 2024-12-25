@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.signal import spectrogram
 
 class LofarSimulator:
-    def __init__(self, sampling_rate=1000, duration=10, noise_level=0.1):
+    def __init__(self, sampling_rate=1000, duration=10, noise_level=0.1, num_hydrophones=40):
         self.sampling_rate = sampling_rate  # Sampling rate in Hz
         self.duration = duration  # Duration of the signal in seconds
         self.noise_level = noise_level  # Noise level
+        self.num_hydrophones = num_hydrophones  # Number of hydrophones in the array
         self.time = np.linspace(0, duration, int(sampling_rate * duration))  # Time axis
 
     def generate_signal(self, frequencies, amplitudes, phases):
@@ -28,18 +29,35 @@ class LofarSimulator:
         signal += self.noise_level * np.random.normal(size=len(self.time))
         return signal
 
-    def beamform(self, signals):
+    def generate_hydrophone_signals(self, frequencies, amplitudes, phases):
         """
-        Simulate beamforming by summing signals from multiple arrays with delays.
+        Generate signals for all hydrophones in the array.
 
         Args:
-            signals: List of signals from different arrays.
+            frequencies: List of frequencies (Hz) for the signal.
+            amplitudes: List of amplitudes for each frequency.
+            phases: List of phase offsets (radians) for each frequency.
+
+        Returns:
+            A list of signals, one for each hydrophone.
+        """
+        return [
+            self.generate_signal(frequencies, amplitudes, phases)
+            for _ in range(self.num_hydrophones)
+        ]
+
+    def beamform(self, signals):
+        """
+        Simulate beamforming by summing signals from multiple hydrophones with delays.
+
+        Args:
+            signals: List of signals from different hydrophones.
 
         Returns:
             Beamformed signal.
         """
-        # Introduce time delays for each signal
-        delays = np.linspace(0, 0.01, len(signals))  # Simulate small delays
+        # Introduce time delays for each hydrophone signal
+        delays = np.linspace(0, 0.01, len(signals))  # Simulate small delays across hydrophones
         beamformed_signal = np.zeros_like(signals[0])
         for signal, delay in zip(signals, delays):
             delay_samples = int(delay * self.sampling_rate)
@@ -76,18 +94,15 @@ class LofarSimulator:
         plt.xlabel('Time (s)')
         plt.ylabel('Frequency (Hz)')
         plt.colorbar(label='Intensity (dB)')
+        plt.ylim(0, 500)  # Focus on the low-frequency range of interest
         plt.show()
 
 # Example usage
 if __name__ == "__main__":
-    simulator = LofarSimulator()
+    simulator = LofarSimulator(sampling_rate=1000, duration=10, noise_level=0.1, num_hydrophones=40)
 
-    # Generate multiple signals to simulate an array
-    signals = [
-        simulator.generate_signal([50, 120], [1, 0.5], [0, np.pi / 4]),
-        simulator.generate_signal([50, 120], [1, 0.5], [np.pi / 8, np.pi / 3]),
-        simulator.generate_signal([50, 120], [1, 0.5], [np.pi / 4, np.pi / 6]),
-    ]
+    # Generate multiple signals for the hydrophone array
+    signals = simulator.generate_hydrophone_signals([10, 30, 60], [1, 0.8, 0.5], [0, np.pi / 4, np.pi / 6])
 
     # Perform beamforming
     beamformed_signal = simulator.beamform(signals)
